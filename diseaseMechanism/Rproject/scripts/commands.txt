@@ -1,0 +1,45 @@
+#for sending files
+ scp  -r Desktop/aziz/diseaseMechanism/Rproject/*.r mezlinim@data2.ccm.sickkids.ca:/hpf/largeprojects/agoldenb/aziz/diseaseMechanism/Rproject/
+scp  -r Desktop/aziz/diseaseMechanism/Rproject/newmethod/* mezlinim@data2.ccm.sickkids.ca:/hpf/largeprojects/agoldenb/aziz/diseaseMechanism/Rproject/newmethod/
+scp  -r Desktop/aziz/diseaseMechanism/Rproject mezlinim@data2.ccm.sickkids.ca:/hpf/largeprojects/agoldenb/aziz/diseaseMechanism/
+
+#for editing / running code
+emacs /hpf/largeprojects/agoldenb/aziz/diseaseMechanism/Rproject/script_main_simul.sh
+qsub /hpf/largeprojects/agoldenb/aziz/diseaseMechanism/Rproject/script_main_simul.sh
+
+#remove numerous patient files (take too much time/memory to deal with)
+rm work/simul/simul_*/rep*/snp*
+rm work/simul/simul_*/rep*/trans*
+rm work/simul/simul_*/rep*/exp*
+rm work/simul/simul_*/rep*/present*
+
+
+
+#get results back
+scp  -r mezlinim@data2.ccm.sickkids.ca:/hpf/largeprojects/agoldenb/aziz/diseaseMechanism/simul/simul_20_1_200/rep1/result* Desktop/aziz/diseaseMechanism/
+
+#or all results
+scp  -r mezlinim@data2.ccm.sickkids.ca:/hpf/largeprojects/agoldenb/aziz/diseaseMechanism/simul/* Desktop/aziz/diseaseMechanism/simul/
+
+
+#memory and time requirements
+#For n=200 25G is enough for worst case, 20G work most of the time. Could make 4 repetitions under 24h. 2 repetitions always work
+# For n=400 60G is enough for worst case, 50G work most of the time. Could make 2 repetitions under 24h most of the time. 1 repetition always work.
+# For n=800 80G is enough for worst case, 75G work most of the time. Could make 1 repetitions under 24h most of the time.
+
+
+#Generating new format files from simulations:
+#After SimulDisease and the beginning of SimulAnalyse
+write.table(data.frame(anno[,1:2],"Simul",anno[,3],"",anno[,5]), "variants.txt",row.names=FALSE,col.names=FALSE,sep="\t",quote=FALSE)
+write.table(data.frame(genenames,1:nbgenes,nbsnps), "genes.txt",row.names=FALSE,col.names=FALSE,sep="\t",quote=FALSE)
+write.table(data.frame(1:nbpatients,1:nbpatients,pheno), "patients.txt",row.names=FALSE,col.names=FALSE,sep="\t",quote=FALSE) 
+sink("genotype.txt");
+for (i in 1:nbgenes)for(j in 1:nbpatients){t=het[[i]][[j]]; if (length(t)){for (k in 1:length(t)){cat(paste(anno[which(anno[,5]==t[k] & anno[,1]==genenames[i]),2],j,1,sep="\t"));cat("\n"); }}}
+for (i in 1:nbgenes)for(j in 1:nbpatients){t=hom[[i]][[j]]; if (length(t)){for (k in 1:length(t)){cat(paste(anno[which(anno[,5]==t[k] & anno[,1]==genenames[i]),2],j,2,sep="\t"));cat("\n"); }}}
+sink()
+write.table(data.frame(ctrExpr,patExpr),"gene_expression.txt",col.names=1:length(pheno),sep="\t")
+write.table(e,"gene_expression_standardized.txt",col.names=1:length(pheno),row.names=genenames,sep="\t")
+write.table(data.frame(genenames[truth],truth),"truth.txt",row.names=FALSE,col.names=FALSE,sep="\t",quote=FALSE)
+
+
+echo "/hpf/largeprojects/agoldenb/aziz/diseaseMechanism/Rproject/scripts/analyse_myoc.r /hpf/largeprojects/agoldenb/aziz/diseaseMechanism/" | qsub -l vmem=16G,nodes=1:ppn=1,walltime=23:50:00 -N "myoc"

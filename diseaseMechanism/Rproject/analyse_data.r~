@@ -1,0 +1,259 @@
+#!/hpf/tools/centos6/R/3.1.1/bin/Rscript
+if (length(commandArgs(TRUE))<5){print("Error: incorrect number of arguments");if(NA)print("Error");}
+path=commandArgs(TRUE)[1];
+datapath=commandArgs(TRUE)[2];
+resultdir=commandArgs(TRUE)[3];
+if (length(commandArgs(TRUE))>3 && !(commandArgs(TRUE)[4] %in% c("0","1"))){exprfile=commandArgs(TRUE)[4];}else {
+  if (length(commandArgs(TRUE))>3 && commandArgs(TRUE)[4]!="0"){exprfile="gene_expression.txt";}else exprfile=NULL;}
+if (length(commandArgs(TRUE))>4 && !(commandArgs(TRUE)[5] %in% c("0","1"))){genefile=commandArgs(TRUE)[5];}else {
+  if (length(commandArgs(TRUE))>4 && commandArgs(TRUE)[5]!="0"){genefile="genes.txt";}else genefile=NULL;}
+if (length(commandArgs(TRUE))>5){patfile=commandArgs(TRUE)[6];}else patfile="patients.txt";
+if (length(commandArgs(TRUE))>6){varfile=commandArgs(TRUE)[7];}else varfile="variants.txt";
+if (length(commandArgs(TRUE))>7){exomefile=commandArgs(TRUE)[8];}else exomefile="genotype.txt";
+if (length(commandArgs(TRUE))>8){compareMethods=as.numeric(commandArgs(TRUE)[9]);}else compareMethods=0;
+if (length(commandArgs(TRUE))>9){complexity=as.numeric(commandArgs(TRUE)[10]);}else complexity=0;
+if (length(commandArgs(TRUE))>10){ratioSignal=as.numeric(commandArgs(TRUE)[11]);}else ratioSignal=0.9;if (ratioSignal>1)ratioSignal=ratioSignal/100;
+if (length(commandArgs(TRUE))>11){indpermut=as.numeric(commandArgs(TRUE)[12]);}else indpermut=0;
+if (length(commandArgs(TRUE))>12){npermut=as.numeric(commandArgs(TRUE)[13]);}else npermut=0;
+if (length(commandArgs(TRUE))>13){patfile_validation=commandArgs(TRUE)[14];}else patfile_validation=NULL;
+
+local=FALSE;
+if (local){
+ path="/home/aziz/Desktop/aziz/diseaseMechanism/";
+ indpermut=0;npermut=0;
+ datapath=paste(path,"data/",sep="");
+ resultdir=paste(path,"Results/",sep="");
+ ratioSignal=0.9;complexity=0;
+ genefile="genes.txt";patfile="patients.txt";varfile="variants.txt";exomefile="genotype.txt";exprfile="gene_expression.txt";
+}
+
+#Model parameters
+meancgenes=20;
+complexityDistr=c(0,0,0,0); if (complexity==0){complexityDistr=c(1,1,1,1)/4}else {complexityDistr[complexity]=1;}
+decay=c(0.05,0.1,0.2,0.4);
+alpha=0.5;
+usenet2=TRUE;
+maxConnections=50;
+netparams=c(0.9,0.01,0.01,1);
+removeExpressionOnly=FALSE;
+propagate=FALSE;
+e=NULL;cores=1;
+auto_balance=TRUE;
+testdmgwas=0
+
+#networkName=paste(path,"networks/BIOGRID3.2.98.tab2/interactions.txt",sep="") ## Biogrid network
+#networkName=paste(path,"networks/HPRD_Release9_062910/interactions.txt",sep="") ## HPRD network
+#networkName=paste(path,"networks/humannet/interactions150.txt",sep="");## HumanNet
+networkName=paste(path,"networks/BIOGRID3.4-132/Biogrid-Human-34-132.txt",sep="")## Biogrid updated
+#networkName=paste(path,"networks/BIOGRID3.4-132/Biogrid-Physical-Conserved-Human-34-132.txt",sep="")## Biogrid conservative updated
+#TODO change to whatever gene network you want to use. Can use other annotations.
+
+codeDir=paste(path,"Rproject/",sep="");
+dir.create(resultdir);
+
+library(preprocessCore);
+library(Matrix)
+source(paste(codeDir,"functions/load_network_functions.r",sep=""));
+source(paste(codeDir,"functions/misc_functions.r",sep=""));
+source(paste(codeDir,"functions/process_expr.r",sep=""));
+
+#load files
+phenomat=read.table(paste(datapath,patfile,sep=""),sep="\t",stringsAsFactors =FALSE);
+genotype=read.table(paste(datapath,exomefile,sep=""),sep="\t",stringsAsFactors =FALSE,colClasses=c("character","character","numeric"));
+rawannot=read.table(paste(datapath,varfile,sep=""),sep="\t",stringsAsFactors =FALSE,colClasses=c("character","character","factor","numeric"));
+annot=rawannot[order(rawannot[,2]),];print(table(annot[,3]));
+if (length(exprfile)){exprmatraw=read.table(paste(datapath,exprfile,sep=""),sep="\t");}else exprmatraw=NULL;
+if (length(genefile)){genemat=read.table(paste(datapath,genefile,sep=""),sep="\t",stringsAsFactors =FALSE);} else genemat=data.frame(sort(unique(annot[,2])),1);
+
+dataok=verifyDependencies(phenomat,genotype,annot,genemat,exprmatraw);
+
+if(!dataok)print("Problem with the input data. Execution stopped.")
+if (dataok){
+
+ varids=1:nrow(annot);names(varids) <- annot[,1];
+ geneids=1:nrow(genemat);names(geneids)<- genemat[,1];
+ patientids=1:nrow(phenomat);names(patientids)<- phenomat[,1];
+ pheno=phenomat[,2];
+
+ #Balance them by reducing the bigger(sampling or taking first n)
+ ph1=which(pheno==1);ph0=which(pheno==0);
+ if (auto_balance){
+  if(length(ph1)>length(ph0)){ph1=sample(ph1,length(ph0));
+  }else if (length(ph0)>length(ph1))ph0=sample(ph0,length(ph1));
+  pheno=c(rep(1,length(ph1)),rep(0,length(ph0)));
+  includedpatientids=patientids[c(ph1,ph0)];
+  ph1=1:length(ph1); ph0=(length(ph1)+1):(length(ph1)+length(ph0));
+  mappat=match(patientids,includedpatientids);
+ } else {mappat=1:length(patientids);includedpatientids=patientids;}
+
+ nbgenes=length(geneids); nbpatients=length(pheno); genenames= names(geneids);
+
+ indsnp=rep(1,nrow(annot)); nb=1;
+ for (i in 2:nrow(annot)){
+  if(annot[i,2]!=annot[i-1,2]){nb=1;}else nb=nb+1;
+  indsnp[i]=nb;
+ }
+
+ harm=list(); length(harm) <- nbgenes;
+ transform_harm=function(x)(x*0.9+0.05)
+ for(i in 1:nbgenes)harm[[i]]<- transform_harm(annot[which(annot[,2]==genenames[i]),4]);
+ nbsnps=rep(0,nbgenes);for (i in 1:nbgenes)nbsnps[i]=length(harm[[i]]);
+ harmgene=rep(meancgenes/nbgenes,nbgenes);
+
+ #load expression
+ if (length(exprfile)){
+  quantnormalize=TRUE;logfirst=TRUE;ksi=1;premethod="None";nfactor=50;
+  mapped=mappat[patientids[colnames(exprmatraw)]];#patient in expression/methylation data mapped to includedpatientids (or patientsids if mappat identity);
+  if (premethod %in% c("RUV2","RUV4","RUVinv","RUVrinv")){neg_controls=read.table(paste(datapath,"negative_controls.txt",sep=""),sep="\t",stringsAsFactors =FALSE)[,1];}else neg_controls=NULL;
+  e=preprocess_expr_all(exprmatraw,mapped,ph1,ph0,genenames,nbpatients,pheno_expr,quantnormalize,logfirst,neg_controls,premethod,ksi,nfactor);
+ }
+ if(length(e))print(paste("Number of mild aberrations: ",length(which(abs(e)>2)), ", strong :",length(which(abs(e)>3))))
+
+ gc();
+
+ #load genotypes (list of variants in each inividual and zygocity)
+ het=list();length(het)<- nbgenes;for (i in 1:nbgenes){het[[i]]<- list(); length(het[[i]])<- nbpatients;} 
+ hom=list();length(hom)<- nbgenes;for (i in 1:nbgenes){hom[[i]]<- list(); length(hom[[i]])<- nbpatients;} 
+ #p=mappat[patientids[genotype[,2]]];ind=varids[genotype[,1]];g=geneids[annot[ind,2]];
+ p=mappat[match(genotype[,2],names(patientids))]; ind=match(genotype[,1],names(varids)); g=match(annot[ind,2],names(geneids));
+ if (compareMethods){
+  pres=which(!is.na(p));varuniq=unique(ind[pres]); geneuniq=geneids[annot[varuniq,2]];
+  transraw=list(gene=genenames[geneuniq],snps=varuniq ,mat=matrix(0,nbpatients,length(varuniq)));
+ }
+ for (i in 1:nrow(genotype)){
+  if(!is.na(g[i]) && !is.na(p[i])){
+    if (genotype[i,3]==1)het[[g[i]]][[p[i]]] <- c(het[[g[i]]][[p[i]]], indsnp[ind[i]])
+    if (genotype[i,3]==2)hom[[g[i]]][[p[i]]] <- c(hom[[g[i]]][[p[i]]], indsnp[ind[i]])
+    if (compareMethods)transraw$mat[p[i],which(varuniq==ind[i])]=genotype[i,3];
+  }
+ }
+ if (compareMethods){prescolumns=which(colSums(transraw$mat)>0);trans=list(gene=transraw$gene[prescolumns],snps=transraw$snps[prescolumns] ,mat=transraw$mat[,prescolumns])}
+
+ #load network and optionally include second order neighbours as direct link
+ net1=load_network_genes(networkName,as.character(names(geneids)),maxConnections)$network;
+ net2=mapply(surround2,net1,1:length(net1) , MoreArgs=list(net1=net1));
+ net=net1;if (usenet2)net=net2;
+
+ #Load and apply the method
+ source(paste(codeDir,"functions/analyse_results.r",sep=""));
+ source(paste(codeDir,"newmethod/sumproductmem.r",sep=""))
+
+ acc=NULL;lik=NULL;acc0=NULL;lik0=NULL;
+ if(indpermut==0){
+  ptm <- proc.time();#Rprof(filename = "Rprof.out")
+  x<- grid_search(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,net,e, cores,ratioSignal,decay,alpha,netparams,removeExpressionOnly,propagate);
+  print(proc.time()-ptm);#summaryRprof(filename = "Rprof.out")
+
+  #Analyse results
+  bestgenes=order(x$h,decreasing=TRUE)[1:(2*meancgenes)];
+  print(genenames[bestgenes[1:meancgenes]]);print(x$h[bestgenes[1:meancgenes]])
+  write.table(t(x$h[bestgenes]),paste(resultdir,"topgenes.txt",sep=""),row.names=FALSE,col.names=as.character(genenames[bestgenes]))
+
+  if (x$status){
+   print(x$margC)
+   lik0=sum(x$likelihood);print(lik0);
+   acc0=t(x$predict-pheno)%*%(x$predict-pheno);print(acc0);
+   genestodraw=bestgenes;
+   plot_graphs(x,pheno,resultdir,genestodraw);
+   print(exp(x$munet[bestgenes,2]));
+   #pie_plot_patients(x$causes[[7]],bestgenes,genenames,resultdir,TRUE)
+  }
+  if (npermut>0)indpermut=indpermut+1
+ }
+
+ if (length(e)){
+  for(i in 1:10){
+   g=bestgenes[i];
+   plot_expr_gene(paste(resultdir,genenames[g],".png",sep=""),g,genenames,exprmatraw,e,ph1,ph0,includedpatientids)
+  }
+ }
+
+ save.image(paste(resultdir,"data.RData",sep=""))
+
+ #other methods
+ if(compareMethods){
+  library(AssotesteR)
+  library(dmGWAS)
+  library(SKAT)
+  source(paste(codeDir,"functions/analyse_results.r",sep=""));
+  methods=c("CAST","CALPHA","VT","SKAT-O")#c("CAST","CALPHA","VT","SKAT-O");
+  if(length(methods)){
+   methodsfile=paste(resultdir,"methods.txt",sep="")
+   file.create(methodsfile)
+   genesToTest=unique(trans$gene);
+   for (w in 1: length(methods)){
+     pvals=other_methods(trans,pheno,genesToTest,methods[w],1000000);
+     genesToTest1=genesToTest[which(apply(pvals,1,min)<0.05/length(genesToTest))];#8.10e-6 is the significance threshold after multiple hypothesis
+     write(methods[w],methodsfile, append=TRUE,sep="\t")
+     if(length(genesToTest1))write(genesToTest1,methodsfile, append=TRUE,sep="\t",ncolumns=length(genesToTest1));
+     write(genesToTest[order(apply(pvals,1,min))[1:20]],methodsfile, append=TRUE,sep="\t",ncolumns=20)
+     write(pvals[order(apply(pvals,1,min))[1:20]],methodsfile, append=TRUE,sep="\t",ncolumns=20)
+   }
+  print("Gene based tests performance assessment: done");
+  }
+ }
+
+ if (testdmgwas & compareMethods){
+    library(dmGWAS)
+    skatpvals=rep(0.5,nbgenes);skatpvals[genesToTest]=pvals;
+    skatpvals[which(skatpvals<=10^(-16))]=10^(-16);skatpvals[which(skatpvals>=1)]=0.5#+runif(length(which(skatpvals>=1)))/2;
+    d1=data.frame(gene=genenames,weight=skatpvals,stringsAsFactors =FALSE);
+    netmat=data.frame(interactorA=rep("gene",100000),interactorB=rep("gene",100000),stringsAsFactors =FALSE)
+    k=1;for (i in 1:nbgenes)if(length(net1[[i]])){for(j in net1[[i]]){if (j >i){netmat[k,1]=genenames[i];netmat[k,2]=genenames[j];k=k+1;}}}
+    netmat=netmat[1:(k-1),]
+    resdmgwas=dms(netmat,d1,expr1=NULL,expr2=NULL,d=1,r=0.1)
+    sel=resdmgwas$genesets.clear[[as.numeric(rownames(resdmgwas$zi.ordered)[1])]]
+    write.table(sel,paste(resultdir,"dmgwas_results.txt",sep=""),row.names=FALSE,col.names=FALSE,sep="\t")
+ }
+
+ #Validation set
+ if (length(patfile_validation)){
+ phenomat_v=read.table(paste(datapath,patfile_validation,sep=""),sep="\t",stringsAsFactors =FALSE);
+ patientids_v=1:nrow(phenomat_v); names(patientids_v)<- phenomat_v[,1];
+ het_v=list();length(het_v)<- nbgenes;for (i in 1:nbgenes){het_v[[i]]<- list(); length(het_v[[i]])<- nrow(phenomat_v);} 
+ hom_v=list();length(hom_v)<- nbgenes;for (i in 1:nbgenes){hom_v[[i]]<- list(); length(hom_v[[i]])<- nrow(phenomat_v);}
+ mappat_v=1:length(patientids_v); 
+ p_v=mappat_v[match(genotype[,2],names(patientids_v))];
+ for (i in 1:nrow(genotype)){
+  if(!is.na(g[i]) && !is.na(p_v[i])){
+    if (genotype[i,3]==1)het_v[[g[i]]][[p_v[i]]] <- c(het_v[[g[i]]][[p_v[i]]], indsnp[ind[i]])
+    if (genotype[i,3]==2)hom_v[[g[i]]][[p_v[i]]] <- c(hom_v[[g[i]]][[p_v[i]]], indsnp[ind[i]])
+  }
+ }
+ pheno_v=sumproduct_predict(x,het_v,hom_v,thresh=0.0);
+ pheno_v50=sumproduct_predict(x,het_v,hom_v,thresh=0.5);
+ pheno_vfinal=cbind(phenomat_v[,c(1,2)],pheno_v,pheno_v50);   
+ pheno_tfinal=cbind(phenomat[,c(1,2)], x$predict);
+ write.table(pheno_vfinal,paste(resultdir,"predict_validation.txt",sep=""),row.names=FALSE,col.names=FALSE,sep="\t")
+ if (ncol(phenomat_v)>1){
+   library(pROC)
+   y1=pheno_vfinal[which(pheno_v>0.5),2];y2=pheno_vfinal[which(pheno_v>0.75),2];
+   ord=order(pheno_v,decreasing=TRUE);y3=pheno_vfinal[ord[1:10],2];y4=pheno_vfinal[ord[1:20],2];
+   stats=c(length(which(y1==1)),length(which(y1==0)),length(which(y2==1)),length(which(y2==0)), length(which(y3==1)),length(which(y3==0)),length(which(y4==1)),length(which(y4==0)));
+   signmult=rep(1,length(pheno_v));signmult2=signmult;signmult[which(pheno_vfinal[ord,2]==0)]=-1;signmult2[which(pheno_vfinal[ord,2]==0)]=-2; #multiplicative
+   map=mean(cumsum(as.numeric(pheno_vfinal[ord,2]==1))/(1:length(ord)))#mean average precision
+   es1=which.max(cumsum(signmult*pheno_vfinal[ord,3]));es2=which.max(cumsum(signmult));es3=max(cumsum(signmult*pheno_vfinal[ord,3]));
+   resauc=c(auc(pheno_tfinal[,2],pheno_tfinal[,3]),auc(pheno_vfinal[,2],pheno_vfinal[,3]),auc(pheno_vfinal[,2],pheno_vfinal[,4]),kruskal.test(pheno_vfinal[, 3],as.factor(pheno_vfinal[,2]))$p.value, length(which(x$h>0.5)),as.numeric(x$status), stats,es1,es2,es3,map,paste(genenames[which(x$h>0.5)],collapse='+'));
+   write.table(t(resauc),paste(resultdir,"cross_validation_auc.txt",sep=""),row.names=FALSE,col.names=FALSE,sep="\t")
+   #table(y[order(y[,3],decreasing=TRUE)[1:10],2])
+   table(pheno_vfinal[which(pheno_v>0.5),2])
+ }
+ }
+
+ #Permutations
+ if (indpermut & npermut){
+  xp=list();length(xp)=npermut;
+  lik=rep(0,npermut);acc=rep(0,npermut);
+  if(npermut){ for (i in indpermut:(indpermut+npermut-1)){
+   phenop=sample(pheno);
+   xp[[i]]=grid_search(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,phenop,hom,het,net,e, cores,ratioSignal,decay,alpha,netparams,removeExpressionOnly,propagate);
+   plot_graphs(xp[[i]],phenop,resultdir,NULL,i,reorder=TRUE);
+   lik[i]=sum(xp[[i]]$likelihood);
+   acc[i]=(t(xp[[i]]$predict-pheno)%*%(xp[[i]]$predict-pheno));
+  }}
+ }
+
+ write.table(c(acc0,acc),paste(resultdir,"pred.txt",sep=""),row.names=FALSE,col.names=FALSE)
+ write.table(c(lik0,lik),paste(resultdir,"lik.txt",sep=""),row.names=FALSE,col.names=FALSE)
+}
+

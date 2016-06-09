@@ -1,0 +1,104 @@
+Error in if (phom == 1) return(c(-Inf, -Inf, 0)) : 
+  missing value where TRUE/FALSE needed
+Calls: grid_search ... sumproduct -> mapply -> <Anonymous> -> mapply -> <Anonymous>
+
+
+
+#When there are patients without genotype: TODO fix this by returning (1-pcontrol) probability for that individual
+Error in z %*% ((1 - pheno) * factorP[1, 1:length(z), ] + pheno * factorP[2,  : 
+  non-conformable arguments
+Calls: grid_search -> sumproduct -> mapply -> mapply -> <Anonymous>
+
+#Rare dmgwas error
+Error in identical.idx[[k]] : subscript out of bounds
+Calls: dms -> dms_2.4
+
+
+
+path="/hpf/largeprojects/agoldenb/aziz/diseaseMechanism/"
+datapath="/hpf/largeprojects/agoldenb/aziz/FHS/processed/LDL/"
+resultdir="/hpf/largeprojects/agoldenb/aziz/FHS/processed/LDL/results_0/"
+exprfile=NULL;
+genefile=NULL;
+patfile="patients.txt";
+varfile="variants1.txt";
+exomefile="genotype.txt";
+compareMethods=0
+complexity=0
+indpermut=0;npermut=0;
+work/simul050/simul_10_0_400/rep8/
+
+gname="PRUNE2"
+sum(exp(x$muq[which(genenames==gname),which(pheno==0),2]))
+sum(exp(x$muq[which(genenames==gname),which(pheno==1),2]))
+
+table(unlist(het[[which(genenames==gname)]][which(pheno==1)]))
+table(unlist(het[[which(genenames==gname)]][which(pheno==0)]))
+
+harm[[which(genenames==gname)]]
+
+sum( harm[[which(genenames==gname)]] [unlist(het[[which(genenames==gname)]][which(pheno==0)])])
+sum( harm[[which(genenames==gname)]] [unlist(het[[which(genenames==gname)]][which(pheno==1)])])
+length(unlist(het[[which(genenames==gname)]][which(pheno==0)]))
+length(unlist(het[[which(genenames==gname)]][which(pheno==1)]))
+
+ACY1 (3,0)
+RASGRP1 (3,0)
+TLR9 (3.5,0)
+TULP3 (2,0)
+TWF2 (2.5,0)
+WNT5B(2,0)
+
+
+library(pROC)
+y=read.table("/hpf/largeprojects/agoldenb/aziz/bipolar/processed/results_old_2-1/predict_validation.txt");
+auc(y[,2],y[,3])
+table(y[order(y[,3],decreasing=TRUE)[1:3],2])
+table(y[order(y[,3],decreasing=TRUE)[1:5],2])
+table(y[order(y[,3],decreasing=TRUE)[1:10],2])
+
+roc <- calculate_roc(predictions, 1, 2, n = 100)
+print(cor(y[,2],y[,3]));
+
+
+source("https://bioconductor.org/biocLite.R")
+biocLite("GEOquery")
+library(GEOquery)
+#gds <- getGEO(file="GSE65834_family.soft");print(Meta(gds)$platform_id)
+eset <- getGEO(file="GSE65834_series_matrix.txt");print(pData(eset)$platform_id)
+gpl <- getGEO('GPL15048', destdir=".")
+gplannot=Table(gpl)[,c("ID","GeneSymbol")]
+mat=exprs(eset);
+genenames=unique(sort(as.character(gplannot[,2])));genenames=genenames[-1];#remove empty name
+ind=match(gplannot[,2],genenames);
+exprmat=matrix(0,length(genenames),ncol(mat));rownames(exprmat)<- genenames;colnames(exprmat)<- colnames(mat);
+mat2=exp(mat);
+for (i in 1:length(ind))if (!is.na(ind[i]))exprmat[ind[i],]=exprmat[ind[i],]+mat2[i,];
+write.table(log(exprmat),"healthyExpr65834.txt")
+
+awk -F"\t" 'BEGIN{print "individual\tdisease_status\ts.d.(disease_status)\tcomment"}{print $1"\t"$5"\t"(1-$5)/2"\t"$4}' /hpf/largeprojects/agoldenb/aziz/bipolar/processed/results-2/predict_validation.txt > /hpf/largeprojects/agoldenb/aziz/bipolar/processed/results-1/submission-c2.txt
+
+
+breast cancer luminal: 
+TBX3
+FOXA1
+GATA3
+PIK3CA
+KMT2C
+MAP3K1
+RUNX1
+
+awk -F"\t" 'FNR==NR{a[substr($1,2,4)]=1;next;}{if (a[substr($1,9,4)]==1)print $1}' /hpf/largeprojects/agoldenb/aziz/brca/processed/LuminalA_patients.txt /hpf/largeprojects/agoldenb/aziz/brca/clinical/nationwidechildrens.org_clinical_patient_brca.txt > /hpf/largeprojects/agoldenb/aziz/brca/processed/LuminalA_patients_ids.txt
+
+
+LDLhigh
+"ZNF544" "CNDP1" "KIAA1217" "SPOCD1" "SDHD" "MED12L" "HKR1" "C8orf59" "KIF2B"
+
+LDLlow
+"ALG8" "PCSK9" "ERBB2IP" "APOBEC2" "SNCAIP" "NRP1" "SIPA1L2" "ZNF429" "AQP1" "NMU" "ITIH3"
+
+EOMI
+"DOT1L" "ZFP28" "KCNH2" "FOXM1" "PPOX" "GABRR2" "FUT7" "ZNF764" "IPO11" "KLHDC10" "LY96" "OGFR" "MAGEC3" "OR2J2" "SEMA6A" "QPCTL" "TSR3" "OR5B3" "OR10G3" "FUT10" "OTUD7B" "LOX" "COPA" "C4orf19" "RAVER1" "RNF168"
+
+Epilepsy
+"CLIC6" "VCX3A" "SRRM3" "TMEM225" "MEGF9" "KRTAP5-5" "NCF2" "MAFA" "RNF17" "NCMAP" "SERPINF1" "BBS5" "KRTAP5-1" "CEP128"
