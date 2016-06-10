@@ -1,0 +1,10 @@
+"10_52587953_C_A"	"A1CF"	nonsynonymous	0.79	0.11
+"10_52595854_G_A"	"A1CF"	frameshift	0.95	
+"10_52596055_C_T"	"A1CF"	nonsynonymous	0.75	0.06
+"10_52601632_A_T"	"A1CF"	nonsynonymous	0.35	0.01
+"12_9220358_-_T"	"A2M"	stop-gain	0.95	
+"12_9221429_G_A"	"A2M"	nonsynonymous	0.95	0.15
+"12_9242994_C_T"	"A2M"	nonsynonymous	0.70	0.22
+"11_92499_C_T"	"AB"	nonsynonymous	0.79	0.11
+"11_94424_C_T"	"AB"	frameshift	0.95	
+"11_92234_C_T"	"AB"	nonsynonymous	0.75	0.06
