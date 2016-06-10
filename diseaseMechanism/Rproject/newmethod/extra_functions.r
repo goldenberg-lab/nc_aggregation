@@ -50,7 +50,7 @@ warp_reg= function(m,v){
 }
 
 estimate_causes= function(margg,margq,marge,muy,muy2,het,hom){
-  top=10;snpthreshold=0.1;
+  top=min(10,dim(margg)[2]);snpthreshold=0.1;
   causes=list();length(causes) <- dim(margg)[2];
   xq=exp(margg[,,2]+marginal_aggr(margq));
   xe=exp(margg[,,2]+marginal_aggr(marge));

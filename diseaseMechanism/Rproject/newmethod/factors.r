@@ -64,8 +64,8 @@ factorGene= function(Q,E,H,G,geneFArray){
 
 factorPCommonGen=function(nbgenes,mx,possibleComplexity=3,pcase0=0.95,decay=c(0.05,0.1,0.2,0.4)){
   # Depends on the number of active genes and P (phenotype)
-  size=min(mx,nbgenes);
-  factorP=array(0,dim=c(2,nbgenes+1,possibleComplexity));
+  size=min(mx,2*nbgenes);
+  factorP=array(0,dim=c(2,2*nbgenes+1,possibleComplexity));
   factorP[1,1,]=1-pcase0;
   for (i in 2:size)factorP[1,i,]=decay[1:possibleComplexity]^(i-1);
   factorP[2,,]=1-factorP[1,,];

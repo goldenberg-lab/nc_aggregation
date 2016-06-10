@@ -28,7 +28,7 @@ if (local){
 }
 
 #Model parameters
-meancgenes=20;
+meancgenes=1;
 complexityDistr=c(0,0,0,0); if (complexity==0){complexityDistr=c(1,1,1,1)/4}else {complexityDistr[complexity]=1;}
 decay=c(0.05,0.1,0.2,0.4);
 alpha=0.5;
@@ -44,7 +44,8 @@ testdmgwas=0
 #networkName=paste(path,"networks/BIOGRID3.2.98.tab2/interactions.txt",sep="") ## Biogrid network
 #networkName=paste(path,"networks/HPRD_Release9_062910/interactions.txt",sep="") ## HPRD network
 #networkName=paste(path,"networks/humannet/interactions150.txt",sep="");## HumanNet
-networkName=paste(path,"networks/BIOGRID3.4-132/Biogrid-Human-34-132.txt",sep="")## Biogrid updated
+## networkName=paste(path,"networks/BIOGRID3.4-132/Biogrid-Human-34-132.txt",sep="")## Biogrid updated
+networkName=paste(datapath,"gene_network.txt",sep="")## Biogrid updated
 #networkName=paste(path,"networks/BIOGRID3.4-132/Biogrid-Physical-Conserved-Human-34-132.txt",sep="")## Biogrid conservative updated
 #TODO change to whatever gene network you want to use. Can use other annotations.
 
@@ -130,9 +131,10 @@ if (dataok){
  if (compareMethods){prescolumns=which(colSums(transraw$mat)>0);trans=list(gene=transraw$gene[prescolumns],snps=transraw$snps[prescolumns] ,mat=transraw$mat[,prescolumns])}
 
  #load network and optionally include second order neighbours as direct link
- net1=load_network_genes(networkName,as.character(names(geneids)),maxConnections)$network;
- net2=mapply(surround2,net1,1:length(net1) , MoreArgs=list(net1=net1));
- net=net1;if (usenet2)net=net2;
+ #net1=load_network_genes(networkName,as.character(names(geneids)),maxConnections)$network;
+ #net2=mapply(surround2,net1,1:length(net1) , MoreArgs=list(net1=net1));
+ #net=net1;if (usenet2)net=net2;
+ net <- NULL;
 
  #Load and apply the method
  source(paste(codeDir,"functions/analyse_results.r",sep=""));
