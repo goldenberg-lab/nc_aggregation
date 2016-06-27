@@ -129,13 +129,14 @@ if (dataok){
   }
  }
  if (compareMethods){prescolumns=which(colSums(transraw$mat)>0);trans=list(gene=transraw$gene[prescolumns],snps=transraw$snps[prescolumns] ,mat=transraw$mat[,prescolumns])}
-
  #load network and optionally include second order neighbours as direct link
  #net1=load_network_genes(networkName,as.character(names(geneids)),maxConnections)$network;
  #net2=mapply(surround2,net1,1:length(net1) , MoreArgs=list(net1=net1));
  #net=net1;if (usenet2)net=net2;
  net <- NULL;
 
+ print(geneids);
+ return();
  #Load and apply the method
  source(paste(codeDir,"functions/analyse_results.r",sep=""));
  source(paste(codeDir,"newmethod/sumproductmem.r",sep=""))
@@ -143,7 +144,8 @@ if (dataok){
  acc=NULL;lik=NULL;acc0=NULL;lik0=NULL;
  if(indpermut==0){
   ptm <- proc.time();#Rprof(filename = "Rprof.out")
-  x<- grid_search(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,net,e, cores,ratioSignal,decay,alpha,netparams,removeExpressionOnly,propagate);
+  mes<-init(codeDir,nbgenes,nbpatients,nbsnps,harmgene,meancgenes,complexityDistr,pheno,hom,het,ratioSignal=ratioSignal,netparams=netparams);
+  x<- sumproduct(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,mes,net=net,e=e, cores=corse,ratioSignal=ratioSignal,decay=decay,alpha=alpha,netparams=netparams,removeExpressionOnly=removeExpressionOnly,propagate=propagate);
   print(proc.time()-ptm);#summaryRprof(filename = "Rprof.out")
 
   #Analyse results
