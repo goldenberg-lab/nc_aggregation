@@ -129,14 +129,13 @@ if (dataok){
   }
  }
  if (compareMethods){prescolumns=which(colSums(transraw$mat)>0);trans=list(gene=transraw$gene[prescolumns],snps=transraw$snps[prescolumns] ,mat=transraw$mat[,prescolumns])}
+
  #load network and optionally include second order neighbours as direct link
  #net1=load_network_genes(networkName,as.character(names(geneids)),maxConnections)$network;
  #net2=mapply(surround2,net1,1:length(net1) , MoreArgs=list(net1=net1));
  #net=net1;if (usenet2)net=net2;
  net <- NULL;
 
- print(geneids);
- return();
  #Load and apply the method
  source(paste(codeDir,"functions/analyse_results.r",sep=""));
  source(paste(codeDir,"newmethod/sumproductmem.r",sep=""))
