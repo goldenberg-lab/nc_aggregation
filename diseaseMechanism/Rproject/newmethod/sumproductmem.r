@@ -232,6 +232,8 @@ init=function(codeDir,nbgenes,nbpatients,nbsnps,harmgene,meancgenes,complexityDi
     }    
   }
   muy=list();length(muy) <- nbgenes;for (j in 1:nbgenes){muy[[j]]=list();length(muy[[j]]) <- nbpatients; for (k in 1:nbpatients)muy[[j]][[k]]=matrix(-Inf,length(het[[j]][[k]])+length(hom[[j]][[k]]),3);}
+  print(muy[[1]]);
+  return();
   #initMat=lapply(1:maxsnps,function(x)matrix(0,3,x));#To Make muy2 computation faster (don't have to intialize a new matrix every time)
   muq=initializeMem(nbgenes,nbpatients,3); 
 
@@ -283,6 +285,46 @@ init=function(codeDir,nbgenes,nbpatients,nbsnps,harmgene,meancgenes,complexityDi
   gc()
   return(list(status=FALSE,g=NULL,h=NULL,iter=0,causes=NULL,hsave=hsave,margC=NULL,munetall=munetall,pcase0=pcase0,mureg=NULL,likelihood=NULL,predict=NULL,mux2=mux2,mux=mux,mug=mug,mug2=mug2,muq=muq,muq2=NULL,mue=mue,mue2=mue2,muf=muf,muf2=muf2,factorP=factorP,factorQual=factorQual,geneFArray=geneFArray,mx=mx,muy=muy,muh2=muh2,muh=muh,factorReg=factorReg,etaC=etaC,muC2=muC2,muC=muC))
 
+}
+
+
+addvariant=function(mes,geneid,harmfulness,varhet,varhom,pheno,nbpatients,nbsnps) {
+  # Add a variant to the model, adding to dimensionality and initializing messages as appropriate
+  # geneid: id of which gene variant belongs to
+  # harmfulness: our prior harmfulness score
+  # vals: a vector of size nbpatients of 0,1, or 2 for each patient
+
+  # Add to mux
+  mes$mux[[geneid]]<-cbind(mes$mux[[geneid]],log(rbind(1-harmfulness, harmfulness)));
+
+  # Add to mux2
+  initsnp=log(c(0.4,0.6));initsnp2=log(c(0.37,0.63));
+  to_add<-array(0,dim=c(nbpatients,1,2));
+  # For patients that have it, make message nonzero
+  for(k in 1:nbpatients) {
+	if(length(c(varhet[[k]],varhom[[k]]))) {
+      if(pheno[[k]]) {
+        to_add[k,c(varhet[[k]],varhom[[k]]),1]=initsnp[1];
+        to_add[k,c(varhet[[k]],varhom[[k]]),2]=initsnp[2];
+      } else {
+        to_add[k,c(varhet[[k]],varhom[[k]]),1]=initsnp[2];
+        to_add[k,c(varhet[[k]],varhom[[k]]),2]=initsnp[1];
+      }
+    }
+  }
+
+  # Merge in new variant to old mux2
+  mes$mux2[[geneid]]<-abind(mes$mux2[[geneid]], to_add, along=2);
+  
+  # Add to muy
+  # Will add an entry to the end of each patients matrix that has the variant
+  for(k in 1:nbpatients) {
+    if(length(c(varhet[[k]],varhom[[k]]))) {
+	  mes$muy[[geneid]][[k]]<-rbind(mes$muy[[geneid]][[k]], matrix(-Inf, 1, 3));
+	}
+  }
+
+  return mes
 }
 
 debug=function(munetall,mureg,incomingup,muh2,mug2,mug){
