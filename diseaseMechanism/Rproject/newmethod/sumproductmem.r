@@ -286,13 +286,16 @@ init=function(codeDir,nbgenes,nbpatients,nbsnps,harmgene,meancgenes,complexityDi
 }
 
 
-addvariant=function(mes,geneid,harmfulness,varhet,varhom,pheno,nbpatients,nbsnps) {
+addvariant=function(mes,geneid,harmfulness,vals,pheno,nbpatients) {
   # Add a variant to the model, adding to dimensionality and initializing messages as appropriate
   # geneid: id of which gene variant belongs to
-  # harmfulness: our prior harmfulness score
-  # vals: a vector of size nbpatients of 0,1, or 2 for each patient
-
+  # harmfulness: our prior harmfulness scorea
+  # Index of our new variant in the gene
+  # vals: numerical of length nbpatients with 0,1,2 
   # Add to mux
+
+  library("abind");
+
   mes$mux[[geneid]]<-cbind(mes$mux[[geneid]],log(rbind(1-harmfulness, harmfulness)));
 
   # Add to mux2
@@ -300,13 +303,13 @@ addvariant=function(mes,geneid,harmfulness,varhet,varhom,pheno,nbpatients,nbsnps
   to_add<-array(0,dim=c(nbpatients,1,2));
   # For patients that have it, make message nonzero
   for(k in 1:nbpatients) {
-	if(length(c(varhet[[k]],varhom[[k]]))) {
+	if(vals[[k]] > 0) {
       if(pheno[[k]]) {
-        to_add[k,c(varhet[[k]],varhom[[k]]),1]=initsnp[1];
-        to_add[k,c(varhet[[k]],varhom[[k]]),2]=initsnp[2];
+        to_add[k,1,1]=initsnp[1];
+        to_add[k,1,2]=initsnp[2];
       } else {
-        to_add[k,c(varhet[[k]],varhom[[k]]),1]=initsnp[2];
-        to_add[k,c(varhet[[k]],varhom[[k]]),2]=initsnp[1];
+        to_add[k,1,1]=initsnp[2];
+        to_add[k,1,2]=initsnp[1];
       }
     }
   }
@@ -317,12 +320,12 @@ addvariant=function(mes,geneid,harmfulness,varhet,varhom,pheno,nbpatients,nbsnps
   # Add to muy
   # Will add an entry to the end of each patients matrix that has the variant
   for(k in 1:nbpatients) {
-    if(length(c(varhet[[k]],varhom[[k]]))) {
+    if(vals[[k]]) {
 	  mes$muy[[geneid]][[k]]<-rbind(mes$muy[[geneid]][[k]], matrix(-Inf, 1, 3));
 	}
   }
 
-  return mes
+  return(mes);
 }
 
 debug=function(munetall,mureg,incomingup,muh2,mug2,mug){
