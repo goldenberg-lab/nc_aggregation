@@ -232,8 +232,6 @@ init=function(codeDir,nbgenes,nbpatients,nbsnps,harmgene,meancgenes,complexityDi
     }    
   }
   muy=list();length(muy) <- nbgenes;for (j in 1:nbgenes){muy[[j]]=list();length(muy[[j]]) <- nbpatients; for (k in 1:nbpatients)muy[[j]][[k]]=matrix(-Inf,length(het[[j]][[k]])+length(hom[[j]][[k]]),3);}
-  print(muy[[1]]);
-  return();
   #initMat=lapply(1:maxsnps,function(x)matrix(0,3,x));#To Make muy2 computation faster (don't have to intialize a new matrix every time)
   muq=initializeMem(nbgenes,nbpatients,3); 
 
