@@ -142,11 +142,9 @@ if (dataok){
  acc=NULL;lik=NULL;acc0=NULL;lik0=NULL;
  if(indpermut==0){
   ptm <- proc.time();#Rprof(filename = "Rprof.out")
-<<<<<<< HEAD
  #x<- sumproduct(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,net=net,e=e, cores=corse,ratioSignal=ratioSignal,decay=decay,alpha=alpha,netparams=netparams,removeExpressionOnly=removeExpressionOnly,propagate=propagate);
 
   x<- grid_search(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,net,e, cores,ratioSignal,decay,alpha,netparams,removeExpressionOnly,propagate);
-=======
   mes<-init(codeDir,nbgenes,nbpatients,nbsnps,harmgene,meancgenes,complexityDistr,pheno,hom,het,ratioSignal=ratioSignal,netparams=netparams);
   mes<- sumproduct(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,mes,net=net,e=e, cores=corse,ratioSignal=ratioSignal,decay=decay,alpha=alpha,netparams=netparams,removeExpressionOnly=removeExpressionOnly,propagate=propagate);
 
@@ -161,7 +159,6 @@ if (dataok){
   harm[[add_geneid]] <- c(harm[[add_geneid]], add_harm);
 
   mes<-addvariant(mes,add_geneid,add_harm,add_vals,pheno,nbpatients);
->>>>>>> 6aae700f165497f8abc46257e8a1f5aabbc4c5ad
   print(proc.time()-ptm);#summaryRprof(filename = "Rprof.out")
 
   ptm <- proc.time();#Rprof(filename = "Rprof.out")
