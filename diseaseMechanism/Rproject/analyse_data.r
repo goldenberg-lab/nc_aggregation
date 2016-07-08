@@ -129,7 +129,6 @@ if (dataok){
   }
  }
  if (compareMethods){prescolumns=which(colSums(transraw$mat)>0);trans=list(gene=transraw$gene[prescolumns],snps=transraw$snps[prescolumns] ,mat=transraw$mat[,prescolumns])}
-
  #load network and optionally include second order neighbours as direct link
  #net1=load_network_genes(networkName,as.character(names(geneids)),maxConnections)$network;
  #net2=mapply(surround2,net1,1:length(net1) , MoreArgs=list(net1=net1));
@@ -143,11 +142,31 @@ if (dataok){
  acc=NULL;lik=NULL;acc0=NULL;lik0=NULL;
  if(indpermut==0){
   ptm <- proc.time();#Rprof(filename = "Rprof.out")
+<<<<<<< HEAD
  #x<- sumproduct(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,net=net,e=e, cores=corse,ratioSignal=ratioSignal,decay=decay,alpha=alpha,netparams=netparams,removeExpressionOnly=removeExpressionOnly,propagate=propagate);
 
   x<- grid_search(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,net,e, cores,ratioSignal,decay,alpha,netparams,removeExpressionOnly,propagate);
+=======
+  mes<-init(codeDir,nbgenes,nbpatients,nbsnps,harmgene,meancgenes,complexityDistr,pheno,hom,het,ratioSignal=ratioSignal,netparams=netparams);
+  mes<- sumproduct(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,mes,net=net,e=e, cores=corse,ratioSignal=ratioSignal,decay=decay,alpha=alpha,netparams=netparams,removeExpressionOnly=removeExpressionOnly,propagate=propagate);
+
+
+  # Add in our new variant
+  add_geneid=1;
+  add_harm=0.75;
+  add_vals=c(1,0);
+  het[[add_geneid]][[1]]<-c(het[[add_geneid]][[1]], 5);
+  # Update number of snps, harmfulness
+  nbsnps[[add_geneid]] <- nbsnps[[add_geneid]] + 1;
+  harm[[add_geneid]] <- c(harm[[add_geneid]], add_harm);
+
+  mes<-addvariant(mes,add_geneid,add_harm,add_vals,pheno,nbpatients);
+>>>>>>> 6aae700f165497f8abc46257e8a1f5aabbc4c5ad
   print(proc.time()-ptm);#summaryRprof(filename = "Rprof.out")
 
+  ptm <- proc.time();#Rprof(filename = "Rprof.out")
+  mes<- sumproduct(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,mes,net=net,e=e, cores=corse,ratioSignal=ratioSignal,decay=decay,alpha=alpha,netparams=netparams,removeExpressionOnly=removeExpressionOnly,propagate=propagate);
+  print(proc.time()-ptm);#summaryRprof(filename = "Rprof.out")
   #Analyse results
   bestgenes=order(x$h,decreasing=TRUE)[1:(2*meancgenes)];
   print(genenames[bestgenes[1:meancgenes]]);print(x$h[bestgenes[1:meancgenes]])
