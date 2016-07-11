@@ -1,4 +1,4 @@
-#!/hpf/tools/centos6/R/3.1.1/bin/Rscript
+#!/usr/bin/env Rscript
 path=commandArgs(TRUE)[1];
 nb_genes_causal=as.numeric(commandArgs(TRUE)[2]);
 ratioExprSnp=as.numeric(commandArgs(TRUE)[3]);

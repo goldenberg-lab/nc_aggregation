@@ -142,15 +142,17 @@ if (dataok){
  acc=NULL;lik=NULL;acc0=NULL;lik0=NULL;
  if(indpermut==0){
   ptm <- proc.time();#Rprof(filename = "Rprof.out")
+  #Rprof(interval=0.002);
   mes<-init(codeDir,nbgenes,nbpatients,nbsnps,harmgene,meancgenes,complexityDistr,pheno,hom,het,ratioSignal=ratioSignal,netparams=netparams);
   mes<- sumproduct(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,mes,net=net,e=e, cores=corse,ratioSignal=ratioSignal,decay=decay,alpha=alpha,netparams=netparams,removeExpressionOnly=removeExpressionOnly,propagate=propagate);
-
+  #Rprof(NULL);
+  #summaryRprof();
 
   # Add in our new variant
   add_geneid=1;
   add_harm=0.75;
-  add_vals=c(1,0);
-  het[[add_geneid]][[1]]<-c(het[[add_geneid]][[1]], 5);
+  add_vals=c(0,1);
+  het[[add_geneid]][[2]]<-c(het[[add_geneid]][[2]], 5);
   # Update number of snps, harmfulness
   nbsnps[[add_geneid]] <- nbsnps[[add_geneid]] + 1;
   harm[[add_geneid]] <- c(harm[[add_geneid]], add_harm);
@@ -158,22 +160,26 @@ if (dataok){
   mes<-addvariant(mes,add_geneid,add_harm,add_vals,pheno,nbpatients);
   print(proc.time()-ptm);#summaryRprof(filename = "Rprof.out")
 
-  ptm <- proc.time();#Rprof(filename = "Rprof.out")
+  ptm <- proc.time();
+  #Rprof();
+  Rprof(interval=0.002);
   mes<- sumproduct(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,mes,net=net,e=e, cores=corse,ratioSignal=ratioSignal,decay=decay,alpha=alpha,netparams=netparams,removeExpressionOnly=removeExpressionOnly,propagate=propagate);
+  Rprof(NULL);
   print(proc.time()-ptm);#summaryRprof(filename = "Rprof.out")
+  #summaryRprof();
   #Analyse results
-  bestgenes=order(x$h,decreasing=TRUE)[1:(2*meancgenes)];
-  print(genenames[bestgenes[1:meancgenes]]);print(x$h[bestgenes[1:meancgenes]])
-  write.table(t(x$h[bestgenes]),paste(resultdir,"topgenes.txt",sep=""),row.names=FALSE,col.names=as.character(genenames[bestgenes]))
+  bestgenes=order(mes$h,decreasing=TRUE)[1:(2*meancgenes)];
+  print(genenames[bestgenes[1:meancgenes]]);print(mes$h[bestgenes[1:meancgenes]])
+  write.table(t(mes$h[bestgenes]),paste(resultdir,"topgenes.tmest",sep=""),row.names=FALSE,col.names=as.character(genenames[bestgenes]))
 
-  if (x$status){
-   print(x$margC)
-   lik0=sum(x$likelihood);print(lik0);
-   acc0=t(x$predict-pheno)%*%(x$predict-pheno);print(acc0);
+  if (mes$status){
+   print(mes$margC)
+   lik0=sum(mes$likelihood);print(lik0);
+   acc0=t(mes$predict-pheno)%*%(mes$predict-pheno);print(acc0);
    genestodraw=bestgenes;
-   plot_graphs(x,pheno,resultdir,genestodraw);
-   print(exp(x$munet[bestgenes,2]));
-   #pie_plot_patients(x$causes[[7]],bestgenes,genenames,resultdir,TRUE)
+   plot_graphs(mes,pheno,resultdir,genestodraw);
+   print(exp(mes$munet[bestgenes,2]));
+   #pie_plot_patients(mes$causes[[7]],bestgenes,genenames,resultdir,TRUE)
   }
   if (npermut>0)indpermut=indpermut+1
  }

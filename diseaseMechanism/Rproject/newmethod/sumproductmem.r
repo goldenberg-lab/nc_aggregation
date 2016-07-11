@@ -62,6 +62,21 @@ sumproduct= function(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,
   g=marginal(mes$mug,mes$mug2)
 
   while((delta>convergencedelta && iter<maxiter) | (iter<iterexpr+2) ){
+	sink(file="muy.out",append=TRUE);
+	print(mes$muy);
+	sink();
+	sink(file="mux2.out",append=TRUE);
+	print(mes$mux2);
+	sink();
+	sink(file="muq.out",append=TRUE);
+    print(mes$muq);
+	sink();
+	sink(file="mug.out",append=TRUE);
+	print(mes$mug);
+    sink();	
+	sink(file="muh2.out",append=TRUE);
+	print(mes$muh2);
+	sink();
     ptm1 <- proc.time();#Rprof(filename = "Rprof.out")summaryRprof(filename = "Rprof.out")
     gold=g;
     if((iter%%iteralphareduction)==0){alpha=alpha*0.5;print(paste("Alpha reduced to ",alpha));}
@@ -145,6 +160,9 @@ sumproduct= function(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,
     h=hex[,2]/rowSums(hex);
     g=marginal(mes$mug,mes$mug2);
     delta=sum(abs(exp(gold[,,2])-exp(g[,,2])));
+	sink(file="g.out",append=TRUE);
+	print(g);
+	sink();
     print(paste("Iteration: ",iter,". delta= ",delta, " time=", (proc.time()-ptm1)[3]));
     #write.table(h,paste(dir,"genes",(iter%%10),".txt",sep=""))
     iter=iter+1; 
