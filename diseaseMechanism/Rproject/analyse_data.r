@@ -143,6 +143,8 @@ if (dataok){
  if(indpermut==0){
   ptm <- proc.time();#Rprof(filename = "Rprof.out")
   #Rprof(interval=0.002);
+
+  #x<- grid_search(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,net,e, cores,ratioSignal,decay,alpha,netparams,removeExpressionOnly,propagate);
   mes<-init(codeDir,nbgenes,nbpatients,nbsnps,harmgene,meancgenes,complexityDistr,pheno,hom,het,ratioSignal=ratioSignal,netparams=netparams);
   mes<- sumproduct(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,mes,net=net,e=e, cores=corse,ratioSignal=ratioSignal,decay=decay,alpha=alpha,netparams=netparams,removeExpressionOnly=removeExpressionOnly,propagate=propagate);
   #Rprof(NULL);
