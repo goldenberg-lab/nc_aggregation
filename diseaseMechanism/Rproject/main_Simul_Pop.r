@@ -20,7 +20,7 @@ cores=1;freeMem=TRUE;nbrep=1;indrep=1;
 }
 outputdirSuffix=paste(nb_genes_causal,"_",ratioExprSnp,"_",sample_size,sep="");
 dir=paste(path,"simul/simulrarecommon/simul_",outputdirSuffix,"/",sep="");#output directory for the simulations
-dir.create(dir);
+dir.create(dir, recursive=TRUE);
 codeDir=paste(path,"Rproject/",sep="");
 
 #simul param

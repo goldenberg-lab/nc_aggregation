@@ -53,10 +53,27 @@ codeDir=paste(path,"Rproject/",sep="");
 dir.create(resultdir);
 
 library(preprocessCore);
-library(Matrix)
+library(Matrix);
+library(gtools);
 source(paste(codeDir,"functions/load_network_functions.r",sep=""));
 source(paste(codeDir,"functions/misc_functions.r",sep=""));
 source(paste(codeDir,"functions/process_expr.r",sep=""));
+
+# Create our macro for adding variants
+addvariant_db <- defmacro(geneid, new_harm, vals, expr={
+						  nbsnps[[geneid]] <- nbsnps[[geneid]] + 1;
+						  harm[[geneid]] <- c(harm[[geneid]], new_harm);
+						  for(i in 1:length(vals)) {
+							  if(vals[[i]] == 1) {
+								  het[[geneid]][[i]] <- c(het[[geneid]][[i]], nbsnps[[geneid]]);
+							  } else if(vals[[i]] == 2) {
+								  hom[[geneid]][[i]] <- c(hom[[geneid]][[i]], nbsnps[[geneid]]);
+							  }
+						  }
+						  mes<-addvariant(mes,geneid,new_harm,vals,pheno,nbpatients);
+						  }
+						  );
+
 
 #load files
 phenomat=read.table(paste(datapath,patfile,sep=""),sep="\t",stringsAsFactors =FALSE);
@@ -151,16 +168,9 @@ if (dataok){
   #summaryRprof();
 
   # Add in our new variant
-  add_geneid=1;
-  add_harm=0.75;
-  add_vals=c(0,1);
-  het[[add_geneid]][[2]]<-c(het[[add_geneid]][[2]], 5);
-  # Update number of snps, harmfulness
-  nbsnps[[add_geneid]] <- nbsnps[[add_geneid]] + 1;
-  harm[[add_geneid]] <- c(harm[[add_geneid]], add_harm);
+  addvariant_db(2, 0.75, c(0,1));
 
-  mes<-addvariant(mes,add_geneid,add_harm,add_vals,pheno,nbpatients);
-  print(proc.time()-ptm);#summaryRprof(filename = "Rprof.out")
+print(proc.time()-ptm);#summaryRprof(filename = "Rprof.out")
 
   ptm <- proc.time();
   #Rprof();
