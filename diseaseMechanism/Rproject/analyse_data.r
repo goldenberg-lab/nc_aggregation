@@ -167,8 +167,23 @@ if (dataok){
   #Rprof(NULL);
   #summaryRprof();
 
+
+  #print("mux");print(mes$mux);
+  #print("muy");print(dim(mes$muy[[1]][[2]]));
+  #print("mux2");print(dim(mes$mux2[[2]]));
+  #print("muq");print(dim(mes$muq));
+  #print("muq2");print(mes$muq2);
+  #print("mug");print(dim(mes$mug));
+  #print("mug2");print(dim(mes$mug2));
+  #print("muh");print(dim(mes$muh));
+  #print("muh2");print(dim(mes$muh2));
+  merge_regions(mes,nbpatients,nbgenes,1,2);
   # Add in our new variant
-  addvariant_db(2, 0.75, c(0,1));
+  #vars = rep(0, 200);
+  #vars[[5]] = 1;
+  #vars[[20]] = 1;
+  #addvariant_db(2, 0.75, vars);
+  #addvariant_db(1, 0.75, c(1,0));
 
 print(proc.time()-ptm);#summaryRprof(filename = "Rprof.out")
 

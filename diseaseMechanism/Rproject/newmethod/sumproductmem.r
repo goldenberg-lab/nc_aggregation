@@ -36,6 +36,16 @@ sumproduct= function(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,
   #muh prior on genes; muh2 the other way uses etae, etaq, etag2
   #etah uses all other muh2 and one muh
   #etag=mes$mug ,etag2=mes$mug2
+  
+  # mux (list): nbgenes, each entry is # variants in gene * 2
+  # muy (list): nbgenes * nbpatients, each entry is number of hits in there * 3
+  # mux2 (list): nbgenes * (nbpatients * # variants * 2)
+  # muq: nbgenes * nbpatients * 3
+  # muq2 (list): nbgenes * nbpatients * 3
+  # mug: nbgenes * nbpatients * 3
+  # mug2: nbgenes * nbpatients * 3
+  # muh: nbgenes * 2
+  # muh2: nbgenes * nbpatients * 2
 
   verbo=TRUE;
   toomuch=20*meancgenes;#if sum of genes marginals goes over this stop the algorithm (regularization will fail)
@@ -184,6 +194,8 @@ sumproduct= function(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,
   mes$iter=iter-1;
   mes$likelihood=likelihood;
 
+  print(sum(likelihood));
+  print(sum(abs(exp(g[,,2]))));
   return(mes)
   #return(list(status=(delta<=convergencedelta),g=g[,,2],h=h,iter=iter-1,causes=causes,hsave=hsave,margC=margC,munetall=munetall,pcase0=pcase0,mureg=mureg,likelihood=likelihood,predict=predict,mux2=mux2,mux=mux,mug=mug,muq=muq,muq2=muq2,mue=mue,mue2=mue2,muf=muf,muf2=muf2,factorP=factorP,factorQual=factorQual,geneFArray=geneFArray,mx=mx))
 }
@@ -342,6 +354,107 @@ addvariant=function(mes,geneid,harmfulness,vals,pheno,nbpatients) {
 	  mes$muy[[geneid]][[k]]<-rbind(mes$muy[[geneid]][[k]], matrix(-Inf, 1, 3));
 	}
   }
+
+  return(mes);
+}
+
+
+merge_regions=function(mes,nbpatients,nbgenes,reg1,reg2) {
+  library("abind");
+  # Merge two regions in the model, as given by indices reg1 and reg2
+
+  # Need to handle the follow messages changing properly: mux, muy, mux2, muq, muq2, mug, mug, mug2, muh, muh2
+  
+  # mux: just need to collapse harmfulness scores, remove second region
+  mes$mux[reg1]<-cbind(mes$mux[[reg1]],mes$mux[[reg2]]);
+  mes$mux<-mes$mux[-reg2];
+
+  # muy: just need to concatenate hits for each patient, remove second region
+  for(i in 1:nbpatients) {
+    mes$muy[[reg1]][[i]] <- rbind(mes$muy[[reg1]][[i]],mes$muy[[reg2]][[i]]);
+  }
+  mes$muy <- mes$muy[-reg2];
+
+  # mux2: need to concatenate variants for our new region, remove second region
+  mes$mux2[[reg1]] <- abind(mes$mux2[[reg1]], mes$mux2[[reg2]], along=2);
+  mes$mux2 <- mes$mux2[-reg2];
+
+  # muq: As a starting point for our new belief, we'll do this based on previous 2 regions:
+  # 1,1 or 0.5,1 -> 1, 0.5, 0.5 or 0,1 -> 0.5, 0,0 or 0.5,0 -> 0
+  new_muq <- array(0,dim=c(nbpatients,3));
+  new_muq[,1] <- (mes$muq[reg1,,1] * mes$muq[reg2,,1]) +
+  				 (mes$muq[reg1,,1] * mes$muq[reg2,,2]) +
+				 (mes$muq[reg1,,2] * mes$muq[reg2,,1]);
+  new_muq[,2] <- (mes$muq[reg1,,2] * mes$muq[reg2,,3]) + 
+  				 (mes$muq[reg1,,3] * mes$muq[reg2,,1]) +
+	 			 (mes$muq[reg1,,2] * mes$muq[reg2,,2]);
+  new_muq[,3] <- (mes$muq[reg1,,2] * mes$muq[reg2,,3]) + 
+  				 (mes$muq[reg1,,3] * mes$muq[reg2,,2]) + 
+				 (mes$muq[reg1,,2] * mes$muq[reg2,,2]);
+  mes$muq[reg1,,] <- new_muq;
+  mes$muq <- mes$muq[-reg2,,];
+
+  # muq2: We do the same kind of thing as in muq
+  new_muq2 <- array(0,dim=c(nbpatients,3));
+  # We need these in matrices so we can access columns properly
+  matrix_muq2_reg1 <- lapply(mes$muq2[[reg1]], as.matrix);
+  matrix_muq2_reg1 <- t(do.call(cbind, matrix_muq2_reg1));
+  matrix_muq2_reg2 <- lapply(mes$muq2[[reg2]], as.matrix);
+  matrix_muq2_reg2 <- t(do.call(cbind, matrix_muq2_reg2));
+
+  new_muq2[,1] <- (matrix_muq2_reg1[,1] * matrix_muq2_reg2[,1]) +
+  				  (matrix_muq2_reg1[,1] * matrix_muq2_reg2[,2]) +
+				  (matrix_muq2_reg1[,2] * matrix_muq2_reg2[,1]);
+  new_muq2[,2] <- (matrix_muq2_reg1[,1] * matrix_muq2_reg2[,3]) + 
+  				  (matrix_muq2_reg1[,3] * matrix_muq2_reg2[,1]) +
+	 			  (matrix_muq2_reg1[,2] * matrix_muq2_reg2[,2]);
+  new_muq2[,3] <- (matrix_muq2_reg1[,2] * matrix_muq2_reg2[,3]) + 
+  				  (matrix_muq2_reg1[,3] * matrix_muq2_reg2[,2]) + 
+				  (matrix_muq2_reg1[,2] * matrix_muq2_reg2[,2]);
+  mes$muq2[[reg1]] <- new_muq2;
+  mes$muq2 <- mes$muq2[-reg2];
+
+  # mug: Again, same kind of thing as muq
+  new_mug <- array(0,dim=c(nbpatients,3));
+  new_mug[,1] <- (mes$mug[reg1,,1] * mes$mug[reg2,,1]) +
+  				 (mes$mug[reg1,,1] * mes$mug[reg2,,2]) +
+				 (mes$mug[reg1,,2] * mes$mug[reg2,,1]);
+  new_mug[,2] <- (mes$mug[reg1,,1] * mes$mug[reg2,,3]) + 
+  				 (mes$mug[reg1,,3] * mes$mug[reg2,,1]) +
+	 			 (mes$mug[reg1,,2] * mes$mug[reg2,,2]);
+  new_mug[,3] <- (mes$mug[reg1,,2] * mes$mug[reg2,,3]) + 
+  				 (mes$mug[reg1,,3] * mes$mug[reg2,,2]) + 
+				 (mes$mug[reg1,,2] * mes$mug[reg2,,2]);
+  mes$mug[reg1,,] <- new_mug;
+  mes$mug <- mes$mug[-reg2,,];
+
+  # mug2: Again, same kind of thing as muq2
+  new_mug2 <- array(0,dim=c(nbpatients,3));
+  new_mug2[,1] <- (mes$mug2[reg1,,1] * mes$mug2[reg2,,1]) +
+  				  (mes$mug2[reg1,,1] * mes$mug2[reg2,,2]) +
+				  (mes$mug2[reg1,,2] * mes$mug2[reg2,,1]);
+  new_mug2[,2] <- (mes$mug2[reg1,,1] * mes$mug2[reg2,,3]) + 
+  				  (mes$mug2[reg1,,3] * mes$mug2[reg2,,1]) +
+	 			  (mes$mug2[reg1,,2] * mes$mug2[reg2,,2]);
+  new_mug2[,3] <- (mes$mug2[reg1,,2] * mes$mug2[reg2,,3]) + 
+  				  (mes$mug2[reg1,,3] * mes$mug2[reg2,,2]) + 
+				  (mes$mug2[reg1,,2] * mes$mug2[reg2,,2]);
+  mes$mug2[reg1,,] <- new_mug2;
+  mes$mug2 <- mes$mug2[-reg2,,];
+
+  # muh: just need to remove second region, we're not giving our merged one any more prior weight than others
+  mes$muh <- mes$muh[-reg2];
+
+  # muh2: We'll be taking an OR of the beliefs about the relevance of the two genes
+  new_muh2 <- array(0,dim=c(nbpatients,2));
+  # new value is 0 only if previous were both 0
+  new_muh2[,1] <- mes$muh2[reg1,,1] * mes$muh2[reg2,,1];
+  # ohterwise it should be 1
+  new_muh2[,2] <- (mes$muh2[reg1,,1] * mes$muh2[reg2,,2]) + 
+				  (mes$muh2[reg1,,2] * mes$muh2[reg2,,1]) +
+				  (mes$muh2[reg1,,2] * mes$muh2[reg2,,2]);
+  mes$muh2[reg1,,] <- new_muh2;
+  mes$muh2 <- mes$muh2[-reg2];
 
   return(mes);
 }
