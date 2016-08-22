@@ -59,20 +59,6 @@ source(paste(codeDir,"functions/load_network_functions.r",sep=""));
 source(paste(codeDir,"functions/misc_functions.r",sep=""));
 source(paste(codeDir,"functions/process_expr.r",sep=""));
 
-# Create our macro for adding variants
-addvariant_db <- defmacro(geneid, new_harm, vals, expr={
-						  nbsnps[[geneid]] <- nbsnps[[geneid]] + 1;
-						  harm[[geneid]] <- c(harm[[geneid]], new_harm);
-						  for(i in 1:length(vals)) {
-							  if(vals[[i]] == 1) {
-								  het[[geneid]][[i]] <- c(het[[geneid]][[i]], nbsnps[[geneid]]);
-							  } else if(vals[[i]] == 2) {
-								  hom[[geneid]][[i]] <- c(hom[[geneid]][[i]], nbsnps[[geneid]]);
-							  }
-						  }
-						  mes<-addvariant(mes,geneid,new_harm,vals,pheno,nbpatients);
-						  }
-						  );
 
 
 #load files
@@ -152,9 +138,10 @@ if (dataok){
  #net=net1;if (usenet2)net=net2;
  net <- NULL;
 
- #Load and apply the method
- source(paste(codeDir,"functions/analyse_results.r",sep=""));
- source(paste(codeDir,"newmethod/sumproductmem.r",sep=""))
+  #Load and apply the method
+  source(paste(codeDir,"functions/analyse_results.r",sep=""));
+  source(paste(codeDir,"newmethod/sumproductmem.r",sep=""));
+  source(paste(codeDir,"functions/add_merge_functions.r",sep=""));
 
  acc=NULL;lik=NULL;acc0=NULL;lik0=NULL;
  if(indpermut==0){
@@ -177,13 +164,13 @@ if (dataok){
   #print("mug2");print(dim(mes$mug2));
   #print("muh");print(dim(mes$muh));
   #print("muh2");print(dim(mes$muh2));
-  merge_regions(mes,nbpatients,nbgenes,1,2);
+  #merge_regions(mes,nbpatients,nbgenes,1,2);
   # Add in our new variant
   #vars = rep(0, 200);
   #vars[[5]] = 1;
   #vars[[20]] = 1;
   #addvariant_db(2, 0.75, vars);
-  #addvariant_db(1, 0.75, c(1,0));
+  addvariant_db(1, 0.75, c(1,0,0,0,0,1));
 
 print(proc.time()-ptm);#summaryRprof(filename = "Rprof.out")
 
