@@ -154,7 +154,7 @@ if (dataok){
   #Rprof(NULL);
   #summaryRprof();
 
-
+  #print(het);
   #print("mux");print(mes$mux);
   #print("muy");print(dim(mes$muy[[1]][[2]]));
   #print("mux2");print(dim(mes$mux2[[2]]));
@@ -170,14 +170,21 @@ if (dataok){
   #vars[[5]] = 1;
   #vars[[20]] = 1;
   #addvariant_db(2, 0.75, vars);
-  addvariant_db(1, 0.75, c(1,0,0,0,0,1));
+  # addvariant_db(1, 0.75, c(1,0,0,0,0,1));
 
+  # Pack in all the info we need
+  info <- list(codeDir=codeDir,nbgenes=nbgenes,nbpatients=nbpatients,nbsnps=nbsnps,harm=harm,harmgene=harmgene,meancgenes=meancgenes,complexityDistr=complexityDistr,pheno=pheno,hom=hom,het=het,mes=mes,net=net,e=e, cores=cores,ratioSignal=ratioSignal,decay=decay,alpha=alpha,netparams=netparams,removeExpressionOnly=removeExpressionOnly,propagate=propagate);
+  # Collapse
+  info <- merge.collapse(likelihood.objective,info);
+  # Unpack
+  list2env(info,envir=environment());
+  
 print(proc.time()-ptm);#summaryRprof(filename = "Rprof.out")
 
   ptm <- proc.time();
   #Rprof();
   Rprof(interval=0.002);
-  mes<- sumproduct(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,mes,net=net,e=e, cores=corse,ratioSignal=ratioSignal,decay=decay,alpha=alpha,netparams=netparams,removeExpressionOnly=removeExpressionOnly,propagate=propagate);
+  ## mes<- sumproduct(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,mes,net=net,e=e, cores=corse,ratioSignal=ratioSignal,decay=decay,alpha=alpha,netparams=netparams,removeExpressionOnly=removeExpressionOnly,propagate=propagate);
   Rprof(NULL);
   print(proc.time()-ptm);#summaryRprof(filename = "Rprof.out")
   #summaryRprof();
@@ -186,13 +193,14 @@ print(proc.time()-ptm);#summaryRprof(filename = "Rprof.out")
   print(genenames[bestgenes[1:meancgenes]]);print(mes$h[bestgenes[1:meancgenes]])
   write.table(t(mes$h[bestgenes]),paste(resultdir,"topgenes.tmest",sep=""),row.names=FALSE,col.names=as.character(genenames[bestgenes]))
 
+  print(nbsnps);
   if (mes$status){
    print(mes$margC)
    lik0=sum(mes$likelihood);print(lik0);
    acc0=t(mes$predict-pheno)%*%(mes$predict-pheno);print(acc0);
    genestodraw=bestgenes;
    plot_graphs(mes,pheno,resultdir,genestodraw);
-   print(exp(mes$munet[bestgenes,2]));
+   #print(exp(mes$munet[bestgenes,2]));
    #pie_plot_patients(mes$causes[[7]],bestgenes,genenames,resultdir,TRUE)
   }
   if (npermut>0)indpermut=indpermut+1

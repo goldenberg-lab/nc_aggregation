@@ -40,16 +40,16 @@ compute_muf2= function(exmue2,ed,factorQuant){#per gene per patient
   return(log(x/sum(x)));
 }
 
-compute_mug2=function(mu,exetaC,pheno,factorP){
+compute_mug2=function(mu,exetaC,pheno,factorP,nbgenes){
   potential=( (pheno*factorP[2,,]+ (1-pheno)*factorP[1,,])%*%exetaC)
-  return(comupute_mu_cardinality(exp(mu),potential,init=c(0.5,0.3,0.2)));
+  return(comupute_mu_cardinality(exp(mu),potential,nbgenes,init=c(0.5,0.3,0.2)));
 }
 
-compute_mureg=function(etareg,factorReg){
+compute_mureg=function(etareg,factorReg,nbgenes){
   y=rowMeans(etareg);
   expreg=exp(etareg-cbind(y,y));
   expetareg=expreg/rowSums(expreg);
-  mureg=comupute_mu_cardinality(expetareg,factorReg);
+  mureg=comupute_mu_cardinality(expetareg,factorReg,nbgenes);
   return(mureg);
 }
 

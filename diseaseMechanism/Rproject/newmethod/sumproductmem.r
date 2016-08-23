@@ -71,6 +71,7 @@ sumproduct= function(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,
   delta=100;iter=1;iter2=1;
   g=marginal(mes$mug,mes$mug2)
 
+  mes$hsave=matrix(0,maxiter*repmax,nbgenes);
   while((delta>convergencedelta && iter<maxiter) | (iter<iterexpr+2) ){
 	sink(file="muy.out",append=TRUE);
 	print(mes$muy);
@@ -107,7 +108,7 @@ sumproduct= function(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,
     alpha1=alpha;
     while (!passed && repn<repmax){
       ptm <- proc.time()
-      newmuh2=compute_muh2(mes$mug2,mes$muq,mes$mue,mes$geneFArray);
+	  newmuh2=compute_muh2(mes$mug2,mes$muq,mes$mue,mes$geneFArray);
       alphat=1; st=2*meancgenes*(1+4/sd)+1; sti=0;
       while(st> 2*meancgenes*(1+4/sd)){
         if (sti)print(paste("Oscillation too strong ",sti,"sum=",st, ". Damping more",alphat))
@@ -120,7 +121,10 @@ sumproduct= function(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,
       mes$muh2=temp;
       #Regularization messages
       etareg=incomingup+mes$munetall;
-      mes$mureg=compute_mureg(etareg,mes$factorReg);#Warning why 2 #Error dim is 2,2  
+	  #print(nbgenes);
+      mes$mureg=compute_mureg(etareg,mes$factorReg,nbgenes);#Warning why 2 #Error dim is 2,2  
+	  #print(dim(mes$mureg));
+	  #print(dim(incomingup));
       incoming=split(mes$mureg+incomingup, 1:nbgenes);
       #Gene network messages
       if(length(net) ){
@@ -134,12 +138,12 @@ sumproduct= function(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,
       }
       #Regularization messages (second time: after network dispersion)
       etareg=incomingup+mes$munetall;
-      mes$mureg=compute_mureg(etareg,mes$factorReg);#Warning why 2 #Error dim is 2,2 
+      mes$mureg=compute_mureg(etareg,mes$factorReg,nbgenes);#Warning why 2 #Error dim is 2,2 
  
       etah=compute_etah(mes$muh2,mes$muh+mes$mureg+mes$munetall);
       mes$mug=compute_mug(mes$muq,mes$mue,etah,mes$geneFArray);  
       mes$mugppat=listbydim(mes$mug,2);     
-      mes$mug2=damping(mes$mug2,aperm(mapply(compute_mug2,mes$mugppat,lapply(mes$etaC,function(x)t(exp(x))),pheno,MoreArgs=list(factorP=mes$factorP), SIMPLIFY="array"),c(1,3,2)),alpha1);
+      mes$mug2=damping(mes$mug2,aperm(mapply(compute_mug2,mes$mugppat,lapply(mes$etaC,function(x)t(exp(x))),pheno,MoreArgs=list(factorP=mes$factorP,nbgenes=nbgenes), SIMPLIFY="array"),c(1,3,2)),alpha1);
       hex=exp(incomingup+mes$mureg+mes$munetall);
       h=hex[,2]/rowSums(hex);if (verbo)print(paste("sum of genes=",sum(h),". time=",(proc.time()-ptm)[3]));
       if(sum(h)>toomuch){print("Unlikely to converge. Try changing ratioSignal or alpha");return(list(status=FALSE));}
@@ -195,7 +199,6 @@ sumproduct= function(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,
   mes$likelihood=likelihood;
 
   print(sum(likelihood));
-  print(sum(abs(exp(g[,,2]))));
   return(mes)
   #return(list(status=(delta<=convergencedelta),g=g[,,2],h=h,iter=iter-1,causes=causes,hsave=hsave,margC=margC,munetall=munetall,pcase0=pcase0,mureg=mureg,likelihood=likelihood,predict=predict,mux2=mux2,mux=mux,mug=mug,muq=muq,muq2=muq2,mue=mue,mue2=mue2,muf=muf,muf2=muf2,factorP=factorP,factorQual=factorQual,geneFArray=geneFArray,mx=mx))
 }
@@ -311,7 +314,7 @@ init=function(codeDir,nbgenes,nbpatients,nbsnps,harmgene,meancgenes,complexityDi
 
   if (verbo)print("Initialization finished");
   gc()
-  return(list(status=FALSE,g=NULL,h=NULL,iter=0,causes=NULL,hsave=hsave,margC=NULL,munetall=munetall,pcase0=pcase0,mureg=NULL,likelihood=NULL,predict=NULL,mux2=mux2,mux=mux,mug=mug,mug2=mug2,muq=muq,muq2=NULL,mue=mue,mue2=mue2,muf=muf,muf2=muf2,factorP=factorP,factorQual=factorQual,geneFArray=geneFArray,mx=mx,muy=muy,muh2=muh2,muh=muh,factorReg=factorReg,etaC=etaC,muC2=muC2,muC=muC))
+  return(list(status=FALSE,g=NULL,h=NULL,iter=0,causes=NULL,hsave=hsave,margC=NULL,munetall=munetall,pcase0=pcase0,mureg=NULL,likelihood=NULL,predict=NULL,mux2=mux2,mux=mux,mug=mug,mug2=mug2,muq=muq,muq2=NULL,mue=mue,mue2=mue2,muf=muf,muf2=muf2,factorP=factorP,factorQual=factorQual,geneFArray=geneFArray,mx=mx,muy=muy,muh2=muh2,muh=muh,factorReg=factorReg,etaC=etaC,muC2=muC2,muC=muC,decay=decay,possibleComplexity=possibleComplexity,meancgenes=meancgenes))
 
 }
 

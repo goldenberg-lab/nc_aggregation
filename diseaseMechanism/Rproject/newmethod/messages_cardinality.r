@@ -1,5 +1,5 @@
 
-comupute_mu_cardinality=function(mu,potential,init=rep(1/ncol(mu), ncol(mu)) ){
+comupute_mu_cardinality=function(mu,potential,nbgenes,init=rep(1/ncol(mu), ncol(mu)) ){
 mu2exp=matrix(0,nbgenes,ncol(mu));
 for (i in 1: ncol(mu))mu2exp[,i]=init[i];
 

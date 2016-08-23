@@ -1,22 +1,31 @@
 # Create our macro for merging 2 regions
 # Works similarly to the one for adding a variant, but just takes in 2 genes
-mergevariants_db <- defmacro(gene1, gene2, expr={
-							 nbsnps[[gene1]] <- nbsnps[[gene1]] + nbsnps[[gene2]];
-							 nbsnps <- nbsnps [-gene2];
-							 harm[[gene1]] <- c(harm[[gene1]], harm[[gene2]]);
+mergevariants.db <- defmacro(gene1, gene2, expr={
+		                     harm[[gene1]] <- c(harm[[gene1]], harm[[gene2]]);
 							 harm <- harm[-gene2];
+							 new.het <- vector("list", nbpatients);
+							 new.hom <- vector("list", nbpatients);
                for(i in 1:nbpatients) {
-                 het[[gene1]][[i]] <- c(het[[gene1]][[i]], (het[[gene2]][[i]] + nbsnps[[gene1]]));
-                 hom[[gene1]][[i]] <- c(hom[[gene1]][[i]], (hom[[gene2]][[i]] + nbsnps[[gene1]]));
+				 if(length(het[[gene1]][[i]]) + length(het[[gene2]][[i]]) > 0) {
+					 het[[gene1]][[i]] <- c(het[[gene1]][[i]], (het[[gene2]][[i]] + nbsnps[[gene1]]));
+				 }
+			     if(length(hom[[gene1]][[i]]) + length(hom[[gene2]][[i]]) > 0) {
+					 hmo[[gene1]][[i]] <- c(hom[[gene1]][[i]], (hom[[gene2]][[i]] + nbsnps[[gene1]]));
+				 }
                }
-               mes <- merge_regions(mes,nbpatients,nbgenes,gene1,gene2);
+			   het <- het[-gene2];
+			   hom <- hom[-gene2];
+			   nbsnps[[gene1]] <- nbsnps[[gene1]] + nbsnps[[gene2]];
+			   nbsnps <- nbsnps [-gene2];
+			   nbgenes <- nbgenes - 1;
+               mes <- merge_regions(mes,nbpatients,nbgenes,nbsnps,gene1,gene2);
 });
 
 
 # Create our macro for adding variants
 # It takes in a geneid we are adding a variant to, the harmfulness score for it, and the status of that variant for each patient (0/1/2)
 # It does the actual addition in the model, but also handles adding everything into our database
-addvariant_db <- defmacro(geneid, new_harm, vals, expr={
+addvariant.db <- defmacro(geneid, new_harm, vals, expr={
 						  nbsnps[[geneid]] <- nbsnps[[geneid]] + 1;
 						  harm[[geneid]] <- c(harm[[geneid]], new_harm);
 						  for(i in 1:length(vals)) {
@@ -74,14 +83,31 @@ addvariant=function(mes,geneid,harmfulness,vals,pheno,nbpatients) {
 }
 
 
-merge_regions=function(mes,nbpatients,nbgenes,reg1,reg2) {
+merge_regions=function(mes,nbpatients,nbgenes,nbsnps,reg1,reg2) {
   library("abind");
   # Merge two regions in the model, as given by indices reg1 and reg2
 
-  # Need to handle the follow messages changing properly: mux, muy, mux2, muq, muq2, mug, mug, mug2, muh, muh2
+  # Need to handle the follow messages changing properly: mux, muy, mux2, muq, muq2, mug, mug, mug2, muh, muh2, factorQual, mue, mue2
   
+
+  # Have to reconstruct some factors to adjust the size
+  mes$factorP<-factorPCommonGen(nbgenes,mes$mx,mes$possibleComplexity,mes$pcase0,mes$decay);
+  sd=2;
+  mes$factorReg<-factorRegGen(nbgenes,mes$mx,mes$meancgenes,sd=sd);#WARNING should test this *2 (not the real model size)
+
+  # We're not using expression, so we're just going to squash mue, mue2
+  mes$mue <- mes$mue[1:nbgenes,,];
+  mes$mue2 <- mes$mue2[1:nbgenes,,];
+
+  # Create new factorQual
+  mes$factorQual <- factorQualGen(max(nbsnps));
+
+  # Not using the network either, so we will fix those dimensionalities
+  mes$munet=list();length(mes$munet) <- nbgenes;
+  mes$munetall=matrix(0,nbgenes,2);
+
   # mux: just need to collapse harmfulness scores, remove second region
-  mes$mux[reg1]<-cbind(mes$mux[[reg1]],mes$mux[[reg2]]);
+  mes$mux[[reg1]]<-cbind(mes$mux[[reg1]],mes$mux[[reg2]]);
   mes$mux<-mes$mux[-reg2];
 
   # muy: just need to concatenate hits for each patient, remove second region
@@ -96,17 +122,18 @@ merge_regions=function(mes,nbpatients,nbgenes,reg1,reg2) {
 
   # muq: As a starting point for our new belief, we'll do this based on previous 2 regions:
   # 1,1 or 0.5,1 -> 1, 0.5, 0.5 or 0,1 -> 0.5, 0,0 or 0.5,0 -> 0
-  new_muq <- array(0,dim=c(nbpatients,3));
-  new_muq[,1] <- (mes$muq[reg1,,1] * mes$muq[reg2,,1]) +
+  new_muq <- array(0,dim=c(1, nbpatients,3));
+  new_muq[,,1] <- (mes$muq[reg1,,1] * mes$muq[reg2,,1]) +
   				 (mes$muq[reg1,,1] * mes$muq[reg2,,2]) +
 				 (mes$muq[reg1,,2] * mes$muq[reg2,,1]);
-  new_muq[,2] <- (mes$muq[reg1,,2] * mes$muq[reg2,,3]) + 
+  new_muq[,,2] <- (mes$muq[reg1,,2] * mes$muq[reg2,,3]) + 
   				 (mes$muq[reg1,,3] * mes$muq[reg2,,1]) +
 	 			 (mes$muq[reg1,,2] * mes$muq[reg2,,2]);
-  new_muq[,3] <- (mes$muq[reg1,,2] * mes$muq[reg2,,3]) + 
+  new_muq[,,3] <- (mes$muq[reg1,,2] * mes$muq[reg2,,3]) + 
   				 (mes$muq[reg1,,3] * mes$muq[reg2,,2]) + 
 				 (mes$muq[reg1,,2] * mes$muq[reg2,,2]);
-  mes$muq[reg1,,] <- new_muq;
+  mes$muq <- abind(mes$muq[0:(reg1-1),,],new_muq,mes$muq[(reg1+1):(nbgenes+1),,],along=1);
+  print(dim(mes$muq));
   mes$muq <- mes$muq[-reg2,,];
 
   # muq2: We do the same kind of thing as in muq
@@ -130,46 +157,46 @@ merge_regions=function(mes,nbpatients,nbgenes,reg1,reg2) {
   mes$muq2 <- mes$muq2[-reg2];
 
   # mug: Again, same kind of thing as muq
-  new_mug <- array(0,dim=c(nbpatients,3));
-  new_mug[,1] <- (mes$mug[reg1,,1] * mes$mug[reg2,,1]) +
+  new_mug <- array(0,dim=c(1,nbpatients,3));
+  new_mug[,,1] <- (mes$mug[reg1,,1] * mes$mug[reg2,,1]) +
   				 (mes$mug[reg1,,1] * mes$mug[reg2,,2]) +
 				 (mes$mug[reg1,,2] * mes$mug[reg2,,1]);
-  new_mug[,2] <- (mes$mug[reg1,,1] * mes$mug[reg2,,3]) + 
+  new_mug[,,2] <- (mes$mug[reg1,,1] * mes$mug[reg2,,3]) + 
   				 (mes$mug[reg1,,3] * mes$mug[reg2,,1]) +
 	 			 (mes$mug[reg1,,2] * mes$mug[reg2,,2]);
-  new_mug[,3] <- (mes$mug[reg1,,2] * mes$mug[reg2,,3]) + 
+  new_mug[,,3] <- (mes$mug[reg1,,2] * mes$mug[reg2,,3]) + 
   				 (mes$mug[reg1,,3] * mes$mug[reg2,,2]) + 
 				 (mes$mug[reg1,,2] * mes$mug[reg2,,2]);
-  mes$mug[reg1,,] <- new_mug;
+  mes$mug <- abind(mes$mug[0:(reg1-1),,],new_mug,mes$mug[(reg1+1):(nbgenes+1),,],along=1);
   mes$mug <- mes$mug[-reg2,,];
 
   # mug2: Again, same kind of thing as muq2
-  new_mug2 <- array(0,dim=c(nbpatients,3));
-  new_mug2[,1] <- (mes$mug2[reg1,,1] * mes$mug2[reg2,,1]) +
+  new_mug2 <- array(0,dim=c(1,nbpatients,3));
+  new_mug2[,,1] <- (mes$mug2[reg1,,1] * mes$mug2[reg2,,1]) +
   				  (mes$mug2[reg1,,1] * mes$mug2[reg2,,2]) +
 				  (mes$mug2[reg1,,2] * mes$mug2[reg2,,1]);
-  new_mug2[,2] <- (mes$mug2[reg1,,1] * mes$mug2[reg2,,3]) + 
+  new_mug2[,,2] <- (mes$mug2[reg1,,1] * mes$mug2[reg2,,3]) + 
   				  (mes$mug2[reg1,,3] * mes$mug2[reg2,,1]) +
 	 			  (mes$mug2[reg1,,2] * mes$mug2[reg2,,2]);
-  new_mug2[,3] <- (mes$mug2[reg1,,2] * mes$mug2[reg2,,3]) + 
+  new_mug2[,,3] <- (mes$mug2[reg1,,2] * mes$mug2[reg2,,3]) + 
   				  (mes$mug2[reg1,,3] * mes$mug2[reg2,,2]) + 
 				  (mes$mug2[reg1,,2] * mes$mug2[reg2,,2]);
-  mes$mug2[reg1,,] <- new_mug2;
+  mes$mug2 <- abind(mes$mug2[0:(reg1-1),,],new_mug2,mes$mug2[(reg1+1):(nbgenes+1),,],along=1);
   mes$mug2 <- mes$mug2[-reg2,,];
 
   # muh: just need to remove second region, we're not giving our merged one any more prior weight than others
-  mes$muh <- mes$muh[-reg2];
+  mes$muh <- mes$muh[-reg2,];
 
   # muh2: We'll be taking an OR of the beliefs about the relevance of the two genes
-  new_muh2 <- array(0,dim=c(nbpatients,2));
+  new_muh2 <- array(0,dim=c(1,nbpatients,2));
   # new value is 0 iff previous were both 0
-  new_muh2[,1] <- mes$muh2[reg1,,1] * mes$muh2[reg2,,1];
+  new_muh2[,,1] <- mes$muh2[reg1,,1] * mes$muh2[reg2,,1];
   # ohterwise it should be 1
-  new_muh2[,2] <- (mes$muh2[reg1,,1] * mes$muh2[reg2,,2]) + 
+  new_muh2[,,2] <- (mes$muh2[reg1,,1] * mes$muh2[reg2,,2]) + 
 				  (mes$muh2[reg1,,2] * mes$muh2[reg2,,1]) +
 				  (mes$muh2[reg1,,2] * mes$muh2[reg2,,2]);
-  mes$muh2[reg1,,] <- new_muh2;
-  mes$muh2 <- mes$muh2[-reg2];
+  mes$muh2 <- abind(mes$muh2[0:(reg1-1),,],new_muh2,mes$muh2[(reg1+1):(nbgenes+1),,],along=1);
+  mes$muh2 <- mes$muh2[-reg2,,];
 
   return(mes);
 }
@@ -183,10 +210,12 @@ get.new.objective=function(func,args,obj,info) {
   
   # Unload the contents of info into our current environment
   list2env(info,envir=environment());
-  
+  ## print(mes$mux);
+  print(args);
   # Call the function to get our modification
-  mes <- do.call(func, c(mes, args));
-
+  mes <- do.call(func, args);
+  #print(nbgenes);
+  #print(mes$mux);
   # Rerun message passing until convergence
   mes<- sumproduct(codeDir,nbgenes,nbpatients,nbsnps,harm,harmgene,meancgenes,complexityDistr,pheno,hom,het,mes,net=net,e=e, cores=corse,ratioSignal=ratioSignal,decay=decay,alpha=alpha,netparams=netparams,removeExpressionOnly=removeExpressionOnly,propagate=propagate);
 
@@ -201,3 +230,31 @@ get.new.objective=function(func,args,obj,info) {
 }
 
 
+  # Create our macro for testing and setting. This will take in a function (again, basically add.variant.db or merge.variants.db), and arguments, will get the new objective function obj we get from doing the operation and rerunning sumproduct, and setting it to the new result if it's beneficial according to the objective function.
+  # Updates the resulting info, the same if it wasn't beneficial, otherwise the updated version
+test.and.set <- defmacro(func,args,obj,info,expr={
+  obj.old.val <- obj(info,sum(info$mes$likelihood));
+  new.info <- get.new.objective(func,args,obj,info);
+  if(new.info$obj.val > obj.old.val) {
+    info <- new.info;
+  }
+});
+
+merge.collapse=function(obj,info) {
+  # Starting from the first and second regions, try to collapse each pair of adjacent regions until we get to then end, using obj as the objective function criteria for whether or not we merge.
+  # Returns the updated info
+  merge.index <- 1;
+  while(merge.index < length(info$nbsnps)) {
+    prev.length <- length(info$nbsnps);
+    test.and.set(mergevariants.db,list(merge.index,merge.index+1),obj,info);
+    if(prev.length == length(info$nbsnps)) {
+      merge.index <- merge.index + 1;
+    }
+  }
+  return(info);
+}
+
+likelihood.objective=function(info,lik) {
+  # The simplest objective function, just the likelihood
+  return(lik);
+}
