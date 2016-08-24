@@ -237,6 +237,7 @@ test.and.set <- defmacro(func,args,obj,info,expr={
   new.info <- get.new.objective(func,args,obj,info);
   if(new.info$obj.val > obj.old.val) {
     info <- new.info;
+    print(paste(obj.old.val, " -> ", new.info$obj.val));
   }
 });
 
@@ -249,7 +250,9 @@ merge.collapse=function(obj,info) {
     test.and.set(mergevariants.db,list(merge.index,merge.index+1),obj,info);
     if(prev.length == length(info$nbsnps)) {
       merge.index <- merge.index + 1;
-    }
+    } else {
+      print(paste("Merging ", merge.index, " and ", merge.index+1));
+	}
   }
   return(info);
 }
