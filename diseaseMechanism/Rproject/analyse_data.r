@@ -64,7 +64,7 @@ source(paste(codeDir,"functions/process_expr.r",sep=""));
 #load files
 phenomat=read.table(paste(datapath,patfile,sep=""),sep="\t",stringsAsFactors =FALSE);
 genotype=read.table(paste(datapath,exomefile,sep=""),sep="\t",stringsAsFactors =FALSE,colClasses=c("character","character","numeric"));
-rawannot=read.table(paste(datapath,varfile,sep=""),sep="\t",stringsAsFactors =FALSE,colClasses=c("character","character","factor","numeric"));
+rawannot=read.table(paste(datapath,varfile,sep=""),sep="\t",stringsAsFactors =FALSE,colClasses=c("character","character","factor","numeric","numeric"));
 annot=rawannot[order(rawannot[,2]),];print(table(annot[,3]));
 if (length(exprfile)){exprmatraw=read.table(paste(datapath,exprfile,sep=""),sep="\t");}else exprmatraw=NULL;
 if (length(genefile)){genemat=read.table(paste(datapath,genefile,sep=""),sep="\t",stringsAsFactors =FALSE);} else genemat=data.frame(sort(unique(annot[,2])),1);
@@ -98,6 +98,13 @@ if (dataok){
   indsnp[i]=nb;
  }
 
+ # Load in acetylation data from variants file
+ h3k=list();
+ length(h3k) <- nbgenes;
+ for(i in 1:nbgenes) {
+	 h3k[[i]] <- annot[which(annot[,2]==genenames[i]),5];
+ }
+ print(h3k);
  harm=list(); length(harm) <- nbgenes;
  transform_harm=function(x)(x*0.9+0.05)
  for(i in 1:nbgenes)harm[[i]]<- transform_harm(annot[which(annot[,2]==genenames[i]),4]);
@@ -176,6 +183,9 @@ if (dataok){
   info <- list(codeDir=codeDir,nbgenes=nbgenes,nbpatients=nbpatients,nbsnps=nbsnps,harm=harm,harmgene=harmgene,meancgenes=meancgenes,complexityDistr=complexityDistr,pheno=pheno,hom=hom,het=het,mes=mes,net=net,e=e, cores=cores,ratioSignal=ratioSignal,decay=decay,alpha=alpha,netparams=netparams,removeExpressionOnly=removeExpressionOnly,propagate=propagate);
   # Collapse
   info <- merge.collapse(likelihood.objective,info);
+  #info <- merge.collapse(sqrt.acet.sqrt.penalty.objective, info);
+  #info <- merge.collapse.check.all(sqrt.acet.sqrt.penalty.objective, info);
+  #info <- merge.collapse(sqrt.penalty.objective, info);
   # Unpack
   list2env(info,envir=environment());
   

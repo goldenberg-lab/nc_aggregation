@@ -3,6 +3,8 @@
 mergevariants.db <- defmacro(gene1, gene2, expr={
 		                     harm[[gene1]] <- c(harm[[gene1]], harm[[gene2]]);
 							 harm <- harm[-gene2];
+							 h3k[[gene1]] <- c(h3k[[gene1]], h3k[[gene2]]);
+							 h3k <- h3k[-gene2];
 							 new.het <- vector("list", nbpatients);
 							 new.hom <- vector("list", nbpatients);
                for(i in 1:nbpatients) {
@@ -23,11 +25,12 @@ mergevariants.db <- defmacro(gene1, gene2, expr={
 
 
 # Create our macro for adding variants
-# It takes in a geneid we are adding a variant to, the harmfulness score for it, and the status of that variant for each patient (0/1/2)
+# It takes in a geneid we are adding a variant to, the harmfulness score for it, the acetylation value, and the status of that variant for each patient (0/1/2)
 # It does the actual addition in the model, but also handles adding everything into our database
-addvariant.db <- defmacro(geneid, new_harm, vals, expr={
+addvariant.db <- defmacro(geneid, new_harm, new_h3k, vals, expr={
 						  nbsnps[[geneid]] <- nbsnps[[geneid]] + 1;
 						  harm[[geneid]] <- c(harm[[geneid]], new_harm);
+						  h3k[[geneid]] <- c(h3k[[geneid]], new_h3k);
 						  for(i in 1:length(vals)) {
 							  if(vals[[i]] == 1) {
 								  het[[geneid]][[i]] <- c(het[[geneid]][[i]], nbsnps[[geneid]]);
@@ -257,7 +260,48 @@ merge.collapse=function(obj,info) {
   return(info);
 }
 
+merge.collapse.check.all=function(obj,info) {
+  # Works similarly to merge.collapse, but goes through checking all pairs first to see which is best, then does collapse and repeat
+  # Returns the updated info
+  while(1) {
+	  obj.old.val <- obj(info,sum(info$mes$likelihood));
+	  best.obj <- obj.old.val;
+	  best.ind <- -1;
+	  best.info <- NULL;
+	  merge.index <- 1;
+	  while(merge.index < length(info$nbsnps)) {
+		new.info <- get.new.objective(mergevariants.db,list(merge.index,merge.index+1),obj,info);
+	    if(new.info$obj.val > best.obj) {
+			best.obj <- new.info$obj.val;
+			best.ind <- merge.index;
+			best.info <- new.info;
+		}
+		merge.index <- merge.index+1;
+	  }
+	  if(best.ind > -1) {
+		  print(paste("Merging ", best.ind, " and ", best.ind+1));
+		  info <- best.info;
+	  } else {
+		  break;
+	  }
+  }
+  return(info);
+}
 likelihood.objective=function(info,lik) {
   # The simplest objective function, just the likelihood
   return(lik);
+}
+
+sqrt.acet.sqrt.penalty.objective=function(info,lik) {
+  # This objective function is likelihood - sqrt(sum(size of regions/2)^2) + sum_regions(sqrt(sum_varinregion(h3k for variant + 1)))
+  penalty <- sum(as.numeric(lapply(info$nbsnps, function(x) (x^2/4))));
+  #penalty <- sqrt(sum(as.numeric(lapply(info$nbsnps, function(x) (x^2/4)))));
+  acet <- sum(as.numeric(lapply(info$h3k,function(x) sqrt(sum(as.numeric(x))+1))));
+  return(lik - penalty + acet);
+}
+
+sqrt.penalty.objective=function(info,lik) {
+  # This objective function is likelihood - sqrt(sum(size of regions/2)^2)
+  penalty <- sqrt(sum(as.numeric(lapply(info$nbsnps, function(x) (x^2/4)))));
+  return(lik - penalty);
 }
